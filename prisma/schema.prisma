@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model accounts {
+  id                 String  @id
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  oauth_token_secret String?
+  oauth_token        String?
+  users              users   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model customerPayments {
+  id               String           @id
+  paymentId        String           @unique
+  customerId       String           @unique
+  email            String?          @unique
+  subscriptionType SubscriptionType @default(FREE)
+  createdAt        DateTime?        @default(now())
+  deletedAt        DateTime?
+  updatedAt        DateTime?
+  users            users            @relation(fields: [customerId], references: [id])
+}
+
+model domains {
+  id          String     @id
+  workspaceId String
+  addedById   String
+  name        String
+  createdAt   DateTime?  @default(now())
+  deletedAt   DateTime?
+  updatedAt   DateTime?
+  value       String?
+  verified    Boolean?   @default(true)
+  users       users      @relation(fields: [addedById], references: [id])
+  workspaces  workspaces @relation(fields: [workspaceId], references: [id])
+  registrar   provider  @relation(fields: [providerId], references: [id])
+  reg_date    DateTime
+  ren_date    DateTime?
+  reg_cost    Decimal
+  ren_cost    Decimal?
+  dns         Json?
+  nameservers String[]
+  subdomains  Json?
+  notes       Json?
+  providerId  String
+  Website     website[]
+}
+
+model provider {
+  id     String   @id @unique @default(cuid())
+  name   String   @unique
+  url    String
+  domains domains[]
+  websites  website[]
+}
+
+model website {
+  id          String   @id @unique @default(cuid())
+  name        String   @unique
+  url         String
+  hostId      String
+  host   provider  @relation(fields: [hostId], references: [id])
+  domain      domains   @relation(fields: [domainId], references: [id])
+  adminCreds  Json?
+  keywords    String[]
+  title       String?
+  description String?
+  notes       Json?
+  domainId    String
+  Serp        serp[]
+}
+
+model serp {
+  id        String   @id @unique @default(cuid())
+  site      website  @relation(fields: [websiteId], references: [id])
+  run_date  DateTime
+  results   Json?
+  websiteId String
+}
+model members {
+  id                           String           @id
+  workspaceId                  String
+  email                        String
+  inviter                      String
+  invitedAt                    DateTime?        @default(now())
+  joinedAt                     DateTime?
+  deletedAt                    DateTime?
+  updatedAt                    DateTime?
+  status                       InvitationStatus @default(PENDING)
+  teamRole                     TeamRole         @default(MEMBER)
+  users_members_emailTousers   users            @relation("members_emailTousers", fields: [email], references: [email])
+  users_members_inviterTousers users            @relation("members_inviterTousers", fields: [inviter], references: [email])
+  workspaces                   workspaces       @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, email])
+}
+
+model sessions {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  users        users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model users {
+  id                             String            @id
+  userCode                       String            @unique
+  name                           String?
+  email                          String?           @unique
+  emailVerified                  DateTime?
+  image                          String?
+  createdAt                      DateTime?         @default(now())
+  deletedAt                      DateTime?
+  updatedAt                      DateTime?
+  accounts                       accounts[]
+  customerPayments               customerPayments?
+  domains                        domains[]
+  members_members_emailTousers   members[]         @relation("members_emailTousers")
+  members_members_inviterTousers members[]         @relation("members_inviterTousers")
+  sessions                       sessions[]
+  workspaces                     workspaces[]
+
+  @@unique([userCode, email])
+}
+
+model verificationTokens {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model workspaces {
+  id            String    @id
+  workspaceCode String    @unique
+  inviteCode    String    @unique
+  creatorId     String
+  name          String
+  slug          String
+  createdAt     DateTime? @default(now())
+  deletedAt     DateTime?
+  updatedAt     DateTime?
+  domains       domains[]
+  members       members[]
+  users         users     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceCode, inviteCode])
+}
+
+enum InvitationStatus {
+  ACCEPTED
+  PENDING
+  DECLINED
+}
+
+enum SubscriptionType {
+  FREE
+  STANDARD
+  PREMIUM
+}
+
+enum TeamRole {
+  MEMBER
+  OWNER
+}
